@@ -1,12 +1,21 @@
 #include <Arduino.h>
 #include <rdm6300.h>
+#include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
 #define RDM6300_RX_PIN D2
 // #define READ_LED_PIN D1
 #define red 14    //D5
 #define green 12  //D6
 #define blue 13   //D7
-
+WiFiManager wm;
 Rdm6300 rdm6300;
+#define DEBUG 1
+#if DEBUG == 1
+#define debug(x) Serial.print(x)
+#define debugln(x) Serial.println(x)
+#else
+#define debug(x)
+#define debugln(x)
+#endif
 int tagRead;
 void setup() {
   Serial.begin(115200);
@@ -21,8 +30,16 @@ void setup() {
   digitalWrite(red, 0);
   digitalWrite(green, 0);
   digitalWrite(blue, 0);
+  wm.setConfigPortalBlocking(false);
+  if (wm.autoConnect()) {
+    debugln(F("Wifi Connected!"));
+    //    setRgbColor(0, 0, 0);//ALL LED LOW
+  }  else {
+    debugln(F("Configportal running"));
+    //    setRgbColor(100, 100, 100);//ALL LED HIGH
+  }
   rdm6300.begin(RDM6300_RX_PIN);
-  Serial.println("\nPlace RFID tag near the rdm6300...");
+  debugln("\nPlace RFID tag near the rdm6300...");
 }
 
 void loop() {
@@ -30,9 +47,9 @@ void loop() {
 }
 void RDM() {
   if (rdm6300.get_new_tag_id()) {
-    Serial.println(rdm6300.get_tag_id(), DEC);
     digitalWrite(LED_BUILTIN, rdm6300.get_tag_id());
-    tagRead = rdm6300.get_tag_id();
+    tagRead = rdm6300.get_tag_id(), DEC;
+    debugln(tagRead);
     if (tagRead == 10879861) {
       digitalWrite(green, 1);
       delay(1000);
