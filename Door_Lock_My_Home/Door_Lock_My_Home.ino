@@ -7,7 +7,7 @@
 #define buzzer 16 // D0
 #define red 14    //D5
 #define green 12  //D6
-#define blue 13   //D7
+#define button 13   //D7
 WiFiManager wm;
 Rdm6300 rdm6300;
 #define DEBUG 1
@@ -18,7 +18,7 @@ Rdm6300 rdm6300;
 #define debug(x)
 #define debugln(x)
 #endif
-int tagRead;
+int tagRead, sw;
 unsigned long MillisGreen = 0;
 bool greenStatus = false;
 void setup() {
@@ -28,14 +28,14 @@ void setup() {
   pinMode(buzzer, OUTPUT);
   pinMode(red, OUTPUT);
   pinMode(green, OUTPUT);
-  pinMode(blue, OUTPUT);
+  pinMode(button, INPUT);
   digitalWrite(red, 1);
   digitalWrite(green, 1);
-  digitalWrite(blue, 1);
+  //  digitalWrite(blue, 1);
   delay(100);
   digitalWrite(red, 0);
   digitalWrite(green, 0);
-  digitalWrite(blue, 0);
+  //  digitalWrite(blue, 0);
   wm.setConfigPortalBlocking(false);
   if (wm.autoConnect()) {
     debugln(F("Wifi Connected!"));
@@ -50,6 +50,10 @@ void setup() {
 }
 
 void loop() {
+  sw = digitalRead(button);
+  if (sw == 0) {
+    greenled_beep(1);
+  }
   RDM();
   millisCheck();
 }
@@ -91,6 +95,7 @@ void redled_beep(int times) {
 void greenled_beep(int times) {
   for (int i = 0; i <= times; i++) {
     digitalWrite(green, HIGH);
+    digitalWrite(Lock, HIGH);
     greenStatus = true;
     MillisGreen = millis();
 
@@ -102,6 +107,7 @@ void millisCheck() {
       MillisGreen = millis();
       //      previousMillisGreen = currentMillisGreen;
       digitalWrite(green, LOW);
+      digitalWrite(Lock, LOW);
       greenStatus = false;
     }
 }
