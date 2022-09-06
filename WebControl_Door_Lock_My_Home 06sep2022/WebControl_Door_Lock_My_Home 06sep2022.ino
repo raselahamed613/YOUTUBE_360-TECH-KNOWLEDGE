@@ -1,3 +1,4 @@
+#include <ESP8266WiFi.h>
 #include <Arduino.h>
 #include <rdm6300.h>
 #include "index.h"
@@ -19,9 +20,11 @@ Rdm6300 rdm6300;
 #define debug(x)
 #define debugln(x)
 #endif
-int tagRead, sw;
+int tagRead, sw, gpio4Value;
 unsigned long MillisGreen = 0, MillisRed = 0;
 bool greenStatus = false, redStatus = false;
+
+WiFiServer espServer(80);
 void setup() {
   Serial.begin(115200);
   pinMode(LED_BUILTIN, OUTPUT);
@@ -32,6 +35,7 @@ void setup() {
   pinMode(button, INPUT);
   digitalWrite(red, 1);
   digitalWrite(green, 1);
+  digitalWrite(LED_BUILTIN, HIGH);
   //  digitalWrite(blue, 1);
   delay(100);
   digitalWrite(red, 0);
@@ -49,7 +53,6 @@ void setup() {
   debugln("\nPlace RFID tag near the rdm6300...");
   MillisGreen = millis();
   MillisRed = millis();
-  
 }
 
 void loop() {
@@ -59,6 +62,7 @@ void loop() {
   }
   RDM();
   millisCheck();
+  web();
 }
 void RDM() {
   if (rdm6300.get_new_tag_id()) {
@@ -123,4 +127,71 @@ void millisCheck() {
       digitalWrite(red, LOW);
       redStatus = false;
     }
+}
+
+void web() {
+  WiFiClient client = espServer.available(); /* Check if a client is available */
+  if (!client) {
+    return;
+  }
+
+  Serial.println("New Client!!!");
+
+  String request = client.readStringUntil('\r'); /* Read the first line of the request from client */
+  Serial.println(request);                       /* Print the request on the Serial monitor */
+  /* The request is in the form of HTTP GET Method */
+  client.flush();
+
+  if (request.indexOf("/GPIO4ON") != -1) {
+    Serial.println("GPIO4 LED is ON");
+    // digitalWrite(gpio4LEDPin, HIGH);
+    gpio4Value = HIGH;
+    digitalWrite(LED_BUILTIN, LOW);
+  }
+  if (request.indexOf("/GPIO4OFF") != -1) {
+    Serial.println("GPIO4 LED is OFF");
+    // digitalWrite(gpio4LEDPin, LOW);
+    digitalWrite(LED_BUILTIN, HIGH);
+    gpio4Value = LOW;
+  }
+
+  /* HTTP Response in the form of HTML Web Page */
+  client.println("HTTP/1.1 200 OK");
+  client.println("Content-Type: text/html");
+  client.println();  //  IMPORTANT
+  client.println("<!DOCTYPE HTML>");
+  client.println("<html>");
+  client.println("<head>");
+  client.println("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
+  client.println("<link rel=\"icon\" href=\"data:,\">");
+  /* CSS Styling for Buttons and Web Page */
+  client.println("<style>");
+  client.println("html { font-family: Courier New; display: inline-block; margin: 0px auto; text-align: center;}");
+  client.println(".button {border: none; color: white; padding: 10px 20px; text-align: center;");
+  client.println("text-decoration: none; font-size: 25px; margin: 2px; cursor: pointer;}");
+  client.println(".button1 {background-color: #13B3F0;}");
+  client.println(".button2 {background-color: #3342FF;}");
+  client.println("</style>");
+  client.println("</head>");
+
+  /* The main body of the Web Page */
+  client.println("<body>");
+  client.println("<h2>Rasel Lab Door Lock</h2>");
+
+  if (gpio4Value == LOW) {
+    client.println("<p>GPIO4 LED Status: OFF</p>");
+    client.print("<p><a href=\"/GPIO4ON\"><button class=\"button button1\">Click to turn ON</button></a></p>");
+  } else {
+    client.println("<p>GPIO4 LED Status: ON</p>");
+    client.print("<p><a href=\"/GPIO4OFF\"><button class=\"button button2\">Click to turn OFF</button></a></p>");
+  }
+  client.println("</body>");
+  client.println("</html>");
+  client.print("\n");
+
+  delay(1);
+  /* Close the connection */
+  client.stop();
+  Serial.println("Client disconnected");
+  Serial.print("\n");
 }
