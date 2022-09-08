@@ -8,13 +8,11 @@
 #include <ElegantOTA.h>
 #define RDM6300_RX_PIN 4  //D2
 // #define READ_LED_PIN D1
-#define Lock 5     //D1
-#define buzzer 16  // D0
-#define red 14     //D5
-#define green 12   //D6
-#define button 13  //D7
-WiFiManager wm;
-Rdm6300 rdm6300;
+#define Lock 5      //D1
+#define buzzer 16   // D0
+#define red 14      //D5
+#define green 12    //D6
+#define button1 13  //D7
 #define DEBUG 1
 #if DEBUG == 1
 #define debug(x) Serial.print(x)
@@ -26,17 +24,23 @@ Rdm6300 rdm6300;
 int tagRead, sw, gpio4Value;
 unsigned long MillisGreen = 0, MillisRed = 0;
 bool greenStatus = false, redStatus = false;
-
-// WiFiServer espServer(80);
+const char *ota_id = "neways", *ota_password = "neways12345";
+String Chipid = "";
+WiFiManager wm;
+Rdm6300 rdm6300;
 ESP8266WebServer server(80);
+
+WiFiServer TelnetServer(23);
+WiFiClient Telnet;
 void setup() {
-  Serial.begin(115200);
+  WiFi.mode(WIFI_STA);
+  Serial.begin(115200, SERIAL_8N1, SERIAL_TX_ONLY);
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(Lock, OUTPUT);
   pinMode(buzzer, OUTPUT);
   pinMode(red, OUTPUT);
   pinMode(green, OUTPUT);
-  pinMode(button, INPUT);
+  pinMode(button1, INPUT);
   digitalWrite(red, 1);
   digitalWrite(green, 1);
   digitalWrite(LED_BUILTIN, HIGH);
@@ -45,7 +49,7 @@ void setup() {
   digitalWrite(red, 0);
   digitalWrite(green, 0);
   //  digitalWrite(blue, 0);
-  WiFi.mode(WIFI_STA);
+
   wm.setConfigPortalBlocking(false);
   wm.setConfigPortalTimeout(60);
   if (wm.autoConnect()) {
@@ -60,17 +64,31 @@ void setup() {
   MillisGreen = millis();
   MillisRed = millis();
 
-  server.on("/", []() {
-    server.send(200, "text/plain", "Hi! I am ESP8266.");
-  });
-
+  // server.on("/", []() {
+  //   server.send(200, "text/plain", "Hi! I am ESP8266.");
+  // });
+  server.on("/", handleRoot);
+  server.on("/product", machine_control);
   // espServer.begin();          /* Start the HTTP web Server */
-  ElegantOTA.begin(&server);  // Start ElegantOTA
+  ElegantOTA.begin(&server, ota_id, ota_password);  // Start ElegantOTA
   server.begin();
+
+  Serial.print(F(__FILE__));  // Always display sketch name and date info
+  Serial.print(F("\t |"));
+  Serial.print(F(__DATE__));
+  Serial.print(F("\t |"));
+  Serial.println(F(__TIME__));
+  Serial.print(F("ChipId: "));
+  Serial.println(Chipid);
+  Serial.printf("ChipID: %08X\n", ESP.getFlashChipId());
+
+  Serial.printf("Default hostname: %s\n", WiFi.hostname().c_str());
+  TelnetServer.begin();
+  TelnetServer.setNoDelay(true);
 }
 
 void loop() {
-  sw = digitalRead(button);
+  sw = digitalRead(button1);
   if (sw == 0) {
     greenled_beep(1);
   }
@@ -78,6 +96,7 @@ void loop() {
   server.handleClient();
   wm.process();
   millisCheck();
+  handleTelnet();
   // Web();
 }
 void RDM() {
@@ -85,6 +104,7 @@ void RDM() {
     digitalWrite(LED_BUILTIN, rdm6300.get_tag_id());
     tagRead = rdm6300.get_tag_id(), DEC;
     debugln(tagRead);
+    Telnet.println(tagRead);
     if (tagRead == 13159803 || tagRead == 1206334) {
       buzzer_beep(1);
       greenled_beep(1);
@@ -161,7 +181,7 @@ void millisCheck() {
 
 //   /* Extract the URL of the request */
 //   /* We have four URLs. If IP Address is 192.168.1.6 (for example),
-//    * then URLs are: 
+//    * then URLs are:
 //    * 192.168.1.6/GPIO4ON and its request is GET /GPIO4ON HTTP/1.1
 //    * 192.168.1.6/GPIO4OFF and its request is GET /GPIO4OFF HTTP/1.1
 //    * 192.168.1.6/GPIO5ON and its request is GET /GPIO5ON HTTP/1.1
@@ -223,3 +243,36 @@ void millisCheck() {
 //   Serial.println("Client disconnected");
 //   Serial.print("\n");
 // }
+void handleRoot() {
+  String s = webpage;
+  server.send(200, "text/html", s);
+}
+
+void machine_control() {
+  String state = "OFF";
+  String act_state = server.arg("state");
+  if (act_state == "1") {
+    //    user_allow_status();
+    digitalWrite(LED_BUILTIN, LOW);
+    delay(500);
+    digitalWrite(LED_BUILTIN, HIGH);
+    state = "OFF";
+  } else if (act_state == "0") {
+    digitalWrite(LED_BUILTIN, LOW);
+    delay(500);
+    digitalWrite(LED_BUILTIN, HIGH);
+    state = "ON";
+  }
+  server.send(200, "text/plane", state);
+}
+void handleTelnet() {
+  if (TelnetServer.hasClient()) {
+    if (!Telnet || !Telnet.connected()) {
+      if (Telnet) Telnet.stop();
+      Telnet = TelnetServer.available();
+      Telnet.flush();
+    } else {
+      TelnetServer.available().stop();
+    }
+  }
+}
