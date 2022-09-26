@@ -5,8 +5,8 @@
 #define gpio4LEDPin 4 /* One LED connected to GPIO4 - D2 */
 #define gpio5LEDPin 5 /* One LED connected to GPIO5 - D1 */
 
-const char* ssid = "RASEL HOME";    /* Add your router's SSID */
-const char* password = "Home@2004"; /*Add the password */
+const char* ssid = "IOT LAB";    /* Add your router's SSID */
+const char* password = "neways12345"; /*Add the password */
 
 int gpio4Value;
 int gpio5Value;

@@ -1,7 +1,7 @@
 #include <ESP8266WiFi.h>
 #include <Arduino.h>
 #include <rdm6300.h>
-#include "index.h"
+// #include "index.h"
 #include <WiFiManager.h>  // https://github.com/tzapu/WiFiManager
 #define RDM6300_RX_PIN 4  //D2
 // #define READ_LED_PIN D1
@@ -62,7 +62,7 @@ void loop() {
   }
   RDM();
   millisCheck();
-  web();
+  // web();
 }
 void RDM() {
   if (rdm6300.get_new_tag_id()) {
