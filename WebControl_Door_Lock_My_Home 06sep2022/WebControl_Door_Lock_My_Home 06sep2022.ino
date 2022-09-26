@@ -3,6 +3,9 @@
 #include <rdm6300.h>
 // #include "index.h"
 #include <WiFiManager.h>  // https://github.com/tzapu/WiFiManager
+#include <WiFiClient.h>
+#include <ESP8266WebServer.h>
+#include <ElegantOTA.h>
 #define RDM6300_RX_PIN 4  //D2
 // #define READ_LED_PIN D1
 #define Lock 5     //D1
@@ -24,7 +27,8 @@ int tagRead, sw, gpio4Value;
 unsigned long MillisGreen = 0, MillisRed = 0;
 bool greenStatus = false, redStatus = false;
 
-WiFiServer espServer(80);
+// WiFiServer espServer(80);
+ESP8266WebServer server(80);
 void setup() {
   Serial.begin(115200);
   pinMode(LED_BUILTIN, OUTPUT);
@@ -41,7 +45,9 @@ void setup() {
   digitalWrite(red, 0);
   digitalWrite(green, 0);
   //  digitalWrite(blue, 0);
+  WiFi.mode(WIFI_STA);
   wm.setConfigPortalBlocking(false);
+  wm.setConfigPortalTimeout(60);
   if (wm.autoConnect()) {
     debugln(F("Wifi Connected!"));
     //    setRgbColor(0, 0, 0);//ALL LED LOW
@@ -53,6 +59,14 @@ void setup() {
   debugln("\nPlace RFID tag near the rdm6300...");
   MillisGreen = millis();
   MillisRed = millis();
+
+  server.on("/", []() {
+    server.send(200, "text/plain", "Hi! I am ESP8266.");
+  });
+
+  // espServer.begin();          /* Start the HTTP web Server */
+  ElegantOTA.begin(&server);  // Start ElegantOTA
+  server.begin();
 }
 
 void loop() {
@@ -61,8 +75,14 @@ void loop() {
     greenled_beep(1);
   }
   RDM();
+  server.handleClient();
+  wm.process();
   millisCheck();
+<<<<<<< HEAD
   // web();
+=======
+  // Web();
+>>>>>>> aa9c685c34e9bebfecee5a2041a2bd8449d489c6
 }
 void RDM() {
   if (rdm6300.get_new_tag_id()) {
@@ -129,69 +149,81 @@ void millisCheck() {
     }
 }
 
-void web() {
-  WiFiClient client = espServer.available(); /* Check if a client is available */
-  if (!client) {
-    return;
-  }
 
-  Serial.println("New Client!!!");
+// void Web() {
+//   WiFiClient client = espServer.available(); /* Check if a client is available */
+//   if (!client) {
+//     return;
+//   }
 
-  String request = client.readStringUntil('\r'); /* Read the first line of the request from client */
-  Serial.println(request);                       /* Print the request on the Serial monitor */
-  /* The request is in the form of HTTP GET Method */
-  client.flush();
+//   Serial.println("New Client!!!");
 
-  if (request.indexOf("/GPIO4ON") != -1) {
-    Serial.println("GPIO4 LED is ON");
-    // digitalWrite(gpio4LEDPin, HIGH);
-    gpio4Value = HIGH;
-    digitalWrite(LED_BUILTIN, LOW);
-  }
-  if (request.indexOf("/GPIO4OFF") != -1) {
-    Serial.println("GPIO4 LED is OFF");
-    // digitalWrite(gpio4LEDPin, LOW);
-    digitalWrite(LED_BUILTIN, HIGH);
-    gpio4Value = LOW;
-  }
+//   String request = client.readStringUntil('\r'); /* Read the first line of the request from client */
+//   Serial.println(request);                       /* Print the request on the Serial monitor */
+//   /* The request is in the form of HTTP GET Method */
+//   client.flush();
 
-  /* HTTP Response in the form of HTML Web Page */
-  client.println("HTTP/1.1 200 OK");
-  client.println("Content-Type: text/html");
-  client.println();  //  IMPORTANT
-  client.println("<!DOCTYPE HTML>");
-  client.println("<html>");
-  client.println("<head>");
-  client.println("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
-  client.println("<link rel=\"icon\" href=\"data:,\">");
-  /* CSS Styling for Buttons and Web Page */
-  client.println("<style>");
-  client.println("html { font-family: Courier New; display: inline-block; margin: 0px auto; text-align: center;}");
-  client.println(".button {border: none; color: white; padding: 10px 20px; text-align: center;");
-  client.println("text-decoration: none; font-size: 25px; margin: 2px; cursor: pointer;}");
-  client.println(".button1 {background-color: #13B3F0;}");
-  client.println(".button2 {background-color: #3342FF;}");
-  client.println("</style>");
-  client.println("</head>");
+//   /* Extract the URL of the request */
+//   /* We have four URLs. If IP Address is 192.168.1.6 (for example),
+//    * then URLs are: 
+//    * 192.168.1.6/GPIO4ON and its request is GET /GPIO4ON HTTP/1.1
+//    * 192.168.1.6/GPIO4OFF and its request is GET /GPIO4OFF HTTP/1.1
+//    * 192.168.1.6/GPIO5ON and its request is GET /GPIO5ON HTTP/1.1
+//    * 192.168.1.6/GPIO4OFF and its request is GET /GPIO5OFF HTTP/1.1
+//    */
+//   /* Based on the URL from the request, turn the LEDs ON or OFF */
+//   if (request.indexOf("/GPIO4ON") != -1) {
+//     Serial.println("GPIO4 LED is ON");
+//     // digitalWrite(gpio4LEDPin, HIGH);
+//     gpio4Value = HIGH;
+//     digitalWrite(LED_BUILTIN, LOW);
+//   }
+//   if (request.indexOf("/GPIO4OFF") != -1) {
+//     Serial.println("GPIO4 LED is OFF");
+//     // digitalWrite(gpio4LEDPin, LOW);
+//     digitalWrite(LED_BUILTIN, HIGH);
+//     gpio4Value = LOW;
+//   }
 
-  /* The main body of the Web Page */
-  client.println("<body>");
-  client.println("<h2>Rasel Lab Door Lock</h2>");
 
-  if (gpio4Value == LOW) {
-    client.println("<p>GPIO4 LED Status: OFF</p>");
-    client.print("<p><a href=\"/GPIO4ON\"><button class=\"button button1\">Click to turn ON</button></a></p>");
-  } else {
-    client.println("<p>GPIO4 LED Status: ON</p>");
-    client.print("<p><a href=\"/GPIO4OFF\"><button class=\"button button2\">Click to turn OFF</button></a></p>");
-  }
-  client.println("</body>");
-  client.println("</html>");
-  client.print("\n");
+//   /* HTTP Response in the form of HTML Web Page */
+//   client.println("HTTP/1.1 200 OK");
+//   client.println("Content-Type: text/html");
+//   client.println();  //  IMPORTANT
+//   client.println("<!DOCTYPE HTML>");
+//   client.println("<html>");
+//   client.println("<head>");
+//   client.println("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
+//   client.println("<link rel=\"icon\" href=\"data:,\">");
+//   /* CSS Styling for Buttons and Web Page */
+//   client.println("<style>");
+//   client.println("html { font-family: Courier New; display: inline-block; margin: 0px auto; text-align: center;}");
+//   client.println(".button {border: none; color: white; padding: 10px 20px; text-align: center;");
+//   client.println("text-decoration: none; font-size: 25px; margin: 2px; cursor: pointer;}");
+//   client.println(".button1 {background-color: #13B3F0;}");
+//   client.println(".button2 {background-color: #3342FF;}");
+//   client.println("</style>");
+//   client.println("</head>");
 
-  delay(1);
-  /* Close the connection */
-  client.stop();
-  Serial.println("Client disconnected");
-  Serial.print("\n");
-}
+//   /* The main body of the Web Page */
+//   client.println("<body>");
+//   client.println("<h2>ESP8266 Web Server</h2>");
+
+//   if (gpio4Value == LOW) {
+//     client.println("<p>GPIO4 LED Status: OFF</p>");
+//     client.print("<p><a href=\"/GPIO4ON\"><button class=\"button button1\">Click to turn ON</button></a></p>");
+//   } else {
+//     client.println("<p>GPIO4 LED Status: ON</p>");
+//     client.print("<p><a href=\"/GPIO4OFF\"><button class=\"button button2\">Click to turn OFF</button></a></p>");
+//   }
+
+//   client.println("</body>");
+//   client.println("</html>");
+//   client.print("\n");
+
+//   delay(1);
+//   /* Close the connection */
+//   client.stop();
+//   Serial.println("Client disconnected");
+//   Serial.print("\n");
+// }
